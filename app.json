@@ -1,0 +1,52 @@
+{
+  "name": "OAuth 2.0 Authorization Server",
+  "description": "Spring Boot OAuth 2.0 Authorization Server with JWT tokens",
+  "keywords": ["oauth2", "spring-boot", "jwt", "authentication"],
+  "website": "https://rabbit.com",
+  "repository": "https://github.com/your-username/your-repo-name",
+  "buildpacks": [
+    {
+      "url": "heroku/gradle"
+    },
+    {
+      "url": "heroku/jvm"
+    }
+  ],
+  "env": {
+    "SPRING_PROFILES_ACTIVE": {
+      "description": "Active Spring profile (use 'prod' for production)",
+      "value": "prod",
+      "required": true
+    },
+    "SPRING_DATASOURCE_URL": {
+      "description": "Database connection URL (PostgreSQL recommended)",
+      "value": "jdbc:postgresql://localhost:5432/oauth_db",
+      "required": true
+    },
+    "SPRING_DATASOURCE_USERNAME": {
+      "description": "Database username",
+      "required": true
+    },
+    "SPRING_DATASOURCE_PASSWORD": {
+      "description": "Database password",
+      "required": true
+    },
+    "SPRING_JPA_HIBERNATE_DDL_AUTO": {
+      "description": "Hibernate DDL mode (use 'update' for first deploy, then 'validate')",
+      "value": "update",
+      "required": false
+    },
+    "SERVER_PORT": {
+      "description": "Server port (usually set by the platform)",
+      "value": "8080",
+      "required": false
+    }
+  },
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "basic"
+    }
+  },
+  "stack": "heroku-22"
+}

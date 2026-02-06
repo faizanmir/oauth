@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tree:*)",
+      "WebSearch",
+      "Bash(./gradlew clean build:*)",
+      "Bash(./gradlew dependencies:*)",
+      "Bash(./gradlew clean compileKotlin:*)",
+      "Bash(jar tf:*)",
+      "Bash(xargs jar tf:*)",
+      "Bash(./gradlew clean compileTestKotlin:*)",
+      "Bash(timeout 30 ./gradlew bootRun:*)",
+      "Bash(env:*)",
+      "Bash(pkill:*)",
+      "Bash(./gradlew build:*)",
+      "Bash(lsof:*)",
+      "Bash(xargs kill -9 sleep 2 echo \"Killed processes on port 8080\" echo \"\" echo \"Verifying assetlinks.json file structure:\" ls -la /Users/faizanmir/Desktop/backend/src/main/resources/static/.well-known/ echo \"\" echo \"File contents:\" cat /Users/faizanmir/Desktop/backend/src/main/resources/static/.well-known/assetlinks.json)",
+      "Bash(python3 -m json.tool echo \"\" echo \"🔗 Will be accessible at:\" echo \" https://rabbit.com/.well-known/assetlinks.json\" echo \"\" echo \"✅ OAuth Issuer:\" grep -A3 \"oauth2:\" /Users/faizanmir/Desktop/backend/src/main/resources/application.yml)",
+      "Bash(if [ -f /Users/faizanmir/Desktop/backend/.gitignore ])",
+      "Bash(then cat /Users/faizanmir/Desktop/backend/.gitignore)",
+      "Bash(else echo \"File does not exist\")",
+      "Bash(fi)"
+    ]
+  }
+}
