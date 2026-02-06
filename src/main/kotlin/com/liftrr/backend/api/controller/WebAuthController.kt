@@ -30,10 +30,17 @@ class WebAuthController(
     fun loginPage(
         @RequestParam(required = false) error: String?,
         @RequestParam(required = false) message: String?,
+        @RequestParam(name = "redirect_url", required = false) redirectUrl: String?,
         model: Model
     ): String {
-        error?.let { model.addAttribute("error", it) }
+        // Handle error parameter (from failed login attempts)
+        if (error != null) {
+            model.addAttribute("error", "Invalid username or password. Please try again.")
+        }
+
         message?.let { model.addAttribute("message", it) }
+        redirectUrl?.let { model.addAttribute("redirectUrl", it) }
+
         return "login"
     }
 
@@ -41,6 +48,7 @@ class WebAuthController(
     fun login(
         @RequestParam username: String,
         @RequestParam password: String,
+        @RequestParam(name = "redirect_url", required = false) redirectUrl: String?,
         session: HttpSession,
         model: Model
     ): String {
@@ -59,7 +67,10 @@ class WebAuthController(
 
             // Get user details
             val user = userRepository.findByUsername(username)
-                .orElseThrow { IllegalStateException("User not found") }
+                .orElseGet {
+                    userRepository.findByEmail(username)
+                        .orElseThrow { IllegalStateException("User not found") }
+                }
 
             // Prepare user data for success page
             model.addAttribute("title", "Welcome Back!")
@@ -69,9 +80,13 @@ class WebAuthController(
                 "email" to user.email
             ))
 
+            // Pass redirect URL to success page if provided
+            redirectUrl?.let { model.addAttribute("redirectUrl", it) }
+
             "success"
         } catch (e: Exception) {
             model.addAttribute("error", "Invalid username or password")
+            redirectUrl?.let { model.addAttribute("redirectUrl", it) }
             "login"
         }
     }
@@ -79,9 +94,11 @@ class WebAuthController(
     @GetMapping("/register")
     fun registerPage(
         @RequestParam(required = false) error: String?,
+        @RequestParam(name = "redirect_url", required = false) redirectUrl: String?,
         model: Model
     ): String {
         error?.let { model.addAttribute("error", it) }
+        redirectUrl?.let { model.addAttribute("redirectUrl", it) }
         return "register"
     }
 
@@ -91,34 +108,40 @@ class WebAuthController(
         @RequestParam email: String,
         @RequestParam password: String,
         @RequestParam confirmPassword: String,
+        @RequestParam(name = "redirect_url", required = false) redirectUrl: String?,
         session: HttpSession,
         model: Model
     ): String {
         // Validation
         if (username.length < 3) {
             model.addAttribute("error", "Username must be at least 3 characters")
+            redirectUrl?.let { model.addAttribute("redirectUrl", it) }
             return "register"
         }
 
         if (password != confirmPassword) {
             model.addAttribute("error", "Passwords do not match")
+            redirectUrl?.let { model.addAttribute("redirectUrl", it) }
             return "register"
         }
 
         if (password.length < 6) {
             model.addAttribute("error", "Password must be at least 6 characters")
+            redirectUrl?.let { model.addAttribute("redirectUrl", it) }
             return "register"
         }
 
         // Check if username exists
         if (userRepository.existsByUsername(username)) {
             model.addAttribute("error", "Username already exists")
+            redirectUrl?.let { model.addAttribute("redirectUrl", it) }
             return "register"
         }
 
         // Check if email exists
         if (userRepository.existsByEmail(email)) {
             model.addAttribute("error", "Email already registered")
+            redirectUrl?.let { model.addAttribute("redirectUrl", it) }
             return "register"
         }
 
@@ -160,9 +183,13 @@ class WebAuthController(
                 "email" to newUser.email
             ))
 
+            // Pass redirect URL to success page if provided
+            redirectUrl?.let { model.addAttribute("redirectUrl", it) }
+
             "success"
         } catch (e: Exception) {
             model.addAttribute("error", "Registration failed: ${e.message}")
+            redirectUrl?.let { model.addAttribute("redirectUrl", it) }
             "register"
         }
     }

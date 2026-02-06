@@ -81,6 +81,28 @@ class WebAuthHelper(private val context: Context) {
 
         openCustomTab(uri.toString())
     }
+
+    /**
+     * Opens login with redirect URL (for deep linking back to app)
+     */
+    fun openLoginWithRedirect(redirectUrl: String) {
+        val uri = Uri.parse(LOGIN_URL).buildUpon()
+            .appendQueryParameter("redirect_url", redirectUrl)
+            .build()
+
+        openCustomTab(uri.toString())
+    }
+
+    /**
+     * Opens registration with redirect URL
+     */
+    fun openRegisterWithRedirect(redirectUrl: String) {
+        val uri = Uri.parse(REGISTER_URL).buildUpon()
+            .appendQueryParameter("redirect_url", redirectUrl)
+            .build()
+
+        openCustomTab(uri.toString())
+    }
 }
 ```
 
@@ -105,6 +127,12 @@ class MainActivity : AppCompatActivity() {
         // Register button
         findViewById<Button>(R.id.btnRegister).setOnClickListener {
             webAuthHelper.openRegister()
+        }
+
+        // Login with redirect URL (optional - for deep linking back to app)
+        findViewById<Button>(R.id.btnLoginWithRedirect).setOnClickListener {
+            val redirectUrl = "myapp://auth-callback"
+            webAuthHelper.openLoginWithRedirect(redirectUrl)
         }
     }
 }
