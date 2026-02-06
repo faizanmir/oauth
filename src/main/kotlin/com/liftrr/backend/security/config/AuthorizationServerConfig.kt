@@ -12,6 +12,8 @@ import org.springframework.http.MediaType
 import org.springframework.security.config.Customizer
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.oauth2.jwt.JwtDecoder
+import org.springframework.security.oauth2.jwt.JwtEncoder
+import org.springframework.security.oauth2.jwt.NimbusJwtEncoder
 import org.springframework.security.oauth2.server.authorization.config.annotation.web.configuration.OAuth2AuthorizationServerConfiguration
 import org.springframework.security.oauth2.server.authorization.config.annotation.web.configurers.OAuth2AuthorizationServerConfigurer
 import org.springframework.security.oauth2.server.authorization.settings.AuthorizationServerSettings
@@ -51,7 +53,7 @@ class AuthorizationServerConfig {
     @Bean
     fun authorizationServerSettings(): AuthorizationServerSettings {
         return AuthorizationServerSettings.builder()
-            .issuer("http://localhost:8080")
+            .issuer("https://web-production-2b788.up.railway.app")
             .build()
     }
 
@@ -73,6 +75,11 @@ class AuthorizationServerConfig {
     @Bean
     fun jwtDecoder(jwkSource: JWKSource<SecurityContext>): JwtDecoder {
         return OAuth2AuthorizationServerConfiguration.jwtDecoder(jwkSource)
+    }
+
+    @Bean
+    fun jwtEncoder(jwkSource: JWKSource<SecurityContext>): JwtEncoder {
+        return NimbusJwtEncoder(jwkSource)
     }
 
     private fun generateRsaKey(): java.security.KeyPair {
