@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${statusCode} + ' Error'">Error</title>
+    <link rel="stylesheet" th:href="@{/css/auth.css}">
+    <style>
+        .error-container {
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .error-code {
+            font-size: 5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+        }
+
+        .error-message {
+            font-size: 1.5rem;
+            color: #4a5568;
+            margin-bottom: 1rem;
+        }
+
+        .error-details {
+            color: #718096;
+            margin-bottom: 2rem;
+        }
+
+        .error-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn-secondary {
+            background: #e2e8f0;
+            color: #2d3748;
+        }
+
+        .btn-secondary:hover {
+            background: #cbd5e0;
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card error-container">
+            <div class="error-code" th:text="${statusCode}">404</div>
+            <div class="error-message" th:text="${statusMessage}">Page Not Found</div>
+            <div class="error-details" th:if="${errorMessage}" th:text="${errorMessage}"></div>
+            <div class="error-details" th:if="${path}">
+                Requested path: <strong th:text="${path}"></strong>
+            </div>
+
+            <div class="error-actions">
+                <button class="btn btn-secondary" onclick="history.back()">
+                    ← Go Back
+                </button>
+                <a th:href="@{/auth/login}" class="btn">
+                    Go to Login
+                </a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome - Liftrr</title>
+    <link rel="stylesheet" th:href="@{/css/auth.css}">
+    <style>
+        .info-section {
+            margin: 2rem 0;
+            padding: 1.5rem;
+            background: #f7fafc;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .info-title {
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 0.5rem;
+        }
+
+        .info-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .info-list li {
+            padding: 0.5rem 0;
+            color: #4a5568;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            background: #667eea;
+            color: white;
+            border-radius: 12px;
+            font-size: 0.875rem;
+            margin-right: 0.5rem;
+        }
+
+        .actions {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin-top: 2rem;
+        }
+
+        .btn-secondary {
+            background: #e2e8f0;
+            color: #2d3748;
+        }
+
+        .btn-secondary:hover {
+            background: #cbd5e0;
+        }
+
+        .btn-danger {
+            background: #f56565;
+        }
+
+        .btn-danger:hover {
+            background: #e53e3e;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h1>Welcome to Liftrr! 👋</h1>
+            <p class="subtitle">You are successfully authenticated</p>
+
+            <div class="info-section">
+                <div class="info-title">Account Information</div>
+                <ul class="info-list">
+                    <li><strong>Username:</strong> <span th:text="${username}"></span></li>
+                    <li>
+                        <strong>Roles:</strong>
+                        <span th:each="role : ${authorities}" class="badge" th:text="${role}"></span>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="info-section">
+                <div class="info-title">📱 Available Features</div>
+                <ul class="info-list">
+                    <li>✅ Web-based Authentication</li>
+                    <li>✅ OAuth 2.0 Authorization Server</li>
+                    <li>✅ JWT Token Generation</li>
+                    <li>✅ Multiple Grant Types (Authorization Code, Client Credentials, Password)</li>
+                    <li>✅ Android App Integration</li>
+                </ul>
+            </div>
+
+            <div class="info-section">
+                <div class="info-title">🔗 API Endpoints</div>
+                <ul class="info-list">
+                    <li><code>/api/user/me</code> - Get current user info (JWT required)</li>
+                    <li><code>/oauth2/authorize</code> - OAuth authorization endpoint</li>
+                    <li><code>/oauth2/token</code> - Token generation endpoint</li>
+                    <li><code>/.well-known/jwks.json</code> - Public keys for JWT verification</li>
+                </ul>
+            </div>
+
+            <div class="actions">
+                <a th:href="@{/api/user/me}" class="btn btn-secondary">View API Profile</a>
+                <a th:href="@{/auth/logout}" class="btn btn-danger">Logout</a>
+            </div>
+
+            <p style="text-align: center; margin-top: 2rem; color: #a0aec0; font-size: 0.875rem;">
+                This page can be closed if opened from Chrome Custom Tab
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // Try to close if opened in Chrome Custom Tab
+        setTimeout(() => {
+            if (window.opener === null && !window.history.length) {
+                window.close();
+            }
+        }, 5000);
+    </script>
+</body>
+</html>
