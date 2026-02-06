@@ -30,6 +30,7 @@ class SecurityConfig(
                     .requestMatchers("/h2-console/**").permitAll()
                     .requestMatchers("/api/auth/register", "/api/auth/login").permitAll()
                     .requestMatchers("/auth/**").permitAll()  // Allow web login/register pages
+                    .requestMatchers("/oauth2/callback", "/mobile/callback").permitAll()  // Allow OAuth callbacks for App Links
                     .requestMatchers("/css/**", "/js/**", "/images/**", "/favicon.ico").permitAll()  // Static resources
                     .requestMatchers("/actuator/health").permitAll()
                     .requestMatchers("/.well-known/**").permitAll()  // Allow assetlinks.json and apple-app-site-association
