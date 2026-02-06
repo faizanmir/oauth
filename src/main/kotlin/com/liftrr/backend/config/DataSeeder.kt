@@ -113,7 +113,8 @@ class DataSeeder(
                 clientName = "Liftrr Mobile Application",
                 grantTypes = mutableSetOf("password", "refresh_token"),
                 redirectUris = mutableSetOf(
-                    "com.learn.tokenviaoauth2://callback/oauth2redirect"  // Android app deep link
+                    "https://web-production-2b788.up.railway.app/oauth2/callback",  // Android App Links
+                    "https://web-production-2b788.up.railway.app/mobile/callback"   // Alternative callback
                 ),
                 scopes = mutableSetOf("read", "write", "openid"),
                 accessTokenTimeToLive = 3600,

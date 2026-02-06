@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#11998e">
+    <title>Opening App...</title>
+    <link rel="stylesheet" th:href="@{/css/auth.css}">
+    <style>
+        .loading-spinner {
+            display: inline-block;
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #667eea;
+            animation: spin 1s ease-in-out infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .callback-info {
+            background: #f7fafc;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 20px 0;
+            text-align: left;
+        }
+
+        .callback-info code {
+            background: #e2e8f0;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.9em;
+        }
+
+        .fallback-button {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-container success-container">
+        <div class="success-icon">✓</div>
+        <h2 th:text="${title ?: 'Opening App...'}">Opening App...</h2>
+        <p th:text="${message ?: 'Please wait while we redirect you to the app...'}">
+            Please wait while we redirect you to the app...
+        </p>
+
+        <div class="loading-spinner"></div>
+
+        <div class="countdown" id="countdown">3</div>
+        <p style="color: #999; font-size: 14px; margin-top: 10px;">
+            If the app doesn't open automatically, tap the button below
+        </p>
+
+        <!-- OAuth callback info (for debugging) -->
+        <div class="callback-info" th:if="${code} or ${token}">
+            <div th:if="${code}">
+                <strong>Authorization Code:</strong><br>
+                <code th:text="${code}">code</code>
+            </div>
+            <div th:if="${state}" style="margin-top: 8px;">
+                <strong>State:</strong><br>
+                <code th:text="${state}">state</code>
+            </div>
+            <div th:if="${token}" style="margin-top: 8px;">
+                <strong>Token received</strong> ✓
+            </div>
+        </div>
+
+        <button class="btn fallback-button" onclick="openApp()" id="openAppBtn">
+            Open App Manually
+        </button>
+
+        <a th:href="@{/auth/login}" style="display: block; margin-top: 16px; color: #667eea; text-decoration: none;">
+            Back to Login
+        </a>
+    </div>
+
+    <script th:inline="javascript">
+        /*<![CDATA[*/
+        const queryParams = /*[[${queryParams}]]*/ '';
+        const baseUrl = 'https://web-production-2b788.up.railway.app/oauth2/callback';
+
+        let count = 3;
+        const countdownEl = document.getElementById('countdown');
+
+        // Function to open the app
+        function openApp() {
+            const appUrl = queryParams ? `${baseUrl}?${queryParams}` : baseUrl;
+
+            console.log('Opening app with URL:', appUrl);
+
+            // Try to open the app using Android App Links (HTTPS URL)
+            window.location.href = appUrl;
+
+            // Fallback: If the app doesn't open after 2 seconds, show a message
+            setTimeout(() => {
+                document.getElementById('openAppBtn').textContent = 'App Not Installed?';
+                document.getElementById('openAppBtn').onclick = function() {
+                    alert('Please install the app to continue.');
+                };
+            }, 2000);
+        }
+
+        // Countdown
+        const interval = setInterval(() => {
+            count--;
+            countdownEl.textContent = count;
+
+            if (count <= 0) {
+                clearInterval(interval);
+                openApp();
+            }
+        }, 1000);
+
+        // Try to open app immediately
+        setTimeout(() => {
+            openApp();
+        }, 500);
+
+        // Send message to Android app (if opened in WebView)
+        try {
+            if (window.Android && window.Android.onAuthCallback) {
+                const data = {
+                    code: /*[[${code}]]*/ null,
+                    state: /*[[${state}]]*/ null,
+                    token: /*[[${token}]]*/ null,
+                    refreshToken: /*[[${refreshToken}]]*/ null
+                };
+                window.Android.onAuthCallback(JSON.stringify(data));
+            }
+        } catch (e) {
+            console.log('Android interface not available');
+        }
+        /*]]>*/
+    </script>
+</body>
+</html>
