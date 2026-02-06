@@ -5,6 +5,7 @@
       "namespace": "android_app",
       "package_name": "org.learn.tokenviaoauth2",
       "sha256_cert_fingerprints": [
+        "08:DC:DE:1F:35:81:EB:D9:C2:D6:58:F7:EC:E8:98:8C:BB:D8:93:A5:1E:31:18:17:88:5D:7C:73:4D:A6:9C:C8",
         "59:7A:CC:F1:0B:F5:54:7A:25:A0:BA:EC:4E:A5:78:A1:2B:A3:43:6B"
       ]
     }
