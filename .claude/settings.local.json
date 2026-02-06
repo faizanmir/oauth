@@ -25,7 +25,10 @@
       "Bash(git push:*)",
       "Bash(git restore:*)",
       "Bash(curl:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(chmod:*)",
+      "Bash(adb devices:*)",
+      "Bash(adb shell pm:*)"
     ]
   }
 }

@@ -6,52 +6,73 @@
     <meta name="theme-color" content="#11998e">
     <title>Success!</title>
     <link rel="stylesheet" th:href="@{/css/auth.css}">
+    <style>
+        /* Optional: Add a simple spinner */
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #11998e;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
 </head>
 <body>
-    <div class="auth-container success-container">
-        <div class="success-icon">✓</div>
-        <h2 th:text="${title ?: 'Success!'}">Success!</h2>
-        <p th:text="${message ?: 'Operation completed successfully'}">
-            You have been successfully logged in
-        </p>
+<div class="auth-container success-container">
+    <div class="success-icon">✓</div>
+    <h2 th:text="${title ?: 'Success!'}">Success!</h2>
+    <p th:text="${message ?: 'Login successful. Redirecting to app...'}">
+        Login successful. Redirecting to app...
+    </p>
 
-        <div class="countdown" id="countdown">3</div>
-        <p style="color: #999; font-size: 14px; margin-top: 10px;">
-            This tab will close automatically...
-        </p>
+    <div class="spinner"></div>
+    <div class="countdown" id="countdown">3</div>
 
-        <button class="btn" onclick="closeWindow()" style="margin-top: 20px;">
-            Return to App Now
-        </button>
-    </div>
+    <p style="color: #999; font-size: 14px; margin-top: 10px;">
+        If the app doesn't open, click below:
+    </p>
 
-    <script th:inline="javascript">
-        /*<![CDATA[*/
-        let count = 3;
-        const countdownEl = document.getElementById('countdown');
+    <button class="btn" id="redirectBtn" onclick="forceRedirect()" style="margin-top: 20px;">
+        Open App
+    </button>
+</div>
 
-        // Get tokens from server
-        const accessToken = /*[[${accessToken}]]*/ null;
-        const refreshToken = /*[[${refreshToken}]]*/ null;
-        const expiresIn = /*[[${expiresIn}]]*/ null;
-        const userData = /*[[${userData}]]*/ null;
+<script th:inline="javascript">
+    /*<![CDATA[*/
+    // ================= CONFIGURATION =================
+    // ⚠️ IMPORTANT: Check your build.gradle (Module: app) for 'applicationId'
+    // It must match this value exactly for the redirect to work!
+    const ANDROID_PACKAGE_NAME = "org.learn.tokenviaoauth2";
+    // =================================================
 
-        // Countdown
-        const interval = setInterval(() => {
-            count--;
-            countdownEl.textContent = count;
+    let count = 3;
+    const countdownEl = document.getElementById('countdown');
 
-            if (count <= 0) {
-                clearInterval(interval);
-                closeWindow();
-            }
-        }, 1000);
+    // Get tokens injected by Thymeleaf
+    const accessToken = /*[[${accessToken}]]*/ '';
+    const refreshToken = /*[[${refreshToken}]]*/ '';
+    const expiresIn = /*[[${expiresIn}]]*/ '';
+    const userData = /*[[${userData}]]*/ null;
+    const baseRedirectUrl = /*[[${redirectUrl}]]*/ '';
 
-        function closeWindow() {
-            // Try to close the Chrome Custom Tab
-            if (window.opener || window.history.length <= 1) {
-                window.close();
-            }
+    // Timer Logic
+    const interval = setInterval(() => {
+        count--;
+        countdownEl.textContent = count;
+        if (count <= 0) {
+            clearInterval(interval);
+            forceRedirect();
+        }
+    }, 1000);
+
+    function forceRedirect() {
+        if (!baseRedirectUrl) {
+            console.error("No redirect URL found");
+            return;
+        }
 
             // Build redirect URL with tokens for mobile app
             const redirectUrl = /*[[${redirectUrl}]]*/ null;
@@ -63,31 +84,40 @@
                 if (expiresIn) url.searchParams.set('expires_in', expiresIn);
                 if (userData && userData.username) url.searchParams.set('username', userData.username);
 
-                console.log('Redirecting to:', url.toString());
-                window.location.href = url.toString();
-            } else {
-                // Default: try to close or redirect to homepage
-                setTimeout(() => {
-                    window.location.href = '/';
-                }, 500);
-            }
-        }
+        // 2. Build the standard HTTPS URL (for fallback/debugging)
+        // e.g., https://web-production.../oauth2/callback?access_token=...
+        const fullHttpsUrl = baseRedirectUrl + (baseRedirectUrl.includes('?') ? '&' : '?') + params.toString();
 
-        // Send message to Android app (if WebView or Custom Tab supports it)
+        // 3. Construct the ANDROID INTENT URL
+        // This is the magic part that forces the app to open even on HTTPS links
+        // Format: intent://<host>/<path>?<query>#Intent;scheme=https;package=<app_id>;end;
+
+        // Parse the base URL to get host and path
         try {
-            if (window.Android && window.Android.onLoginSuccess) {
-                const data = {
-                    accessToken: accessToken,
-                    refreshToken: refreshToken,
-                    expiresIn: expiresIn,
-                    userData: userData
-                };
-                window.Android.onLoginSuccess(JSON.stringify(data));
-            }
+            const urlObj = new URL(baseRedirectUrl);
+            const scheme = urlObj.protocol.replace(':', ''); // 'https'
+            const host = urlObj.host;                        // 'web-production...'
+            const path = urlObj.pathname;                    // '/oauth2/callback'
+
+            // Construct the Intent URI
+            const intentUri = `intent://${host}${path}?${params.toString()}#Intent;scheme=${scheme};package=${ANDROID_PACKAGE_NAME};S.browser_fallback_url=${encodeURIComponent(fullHttpsUrl)};end`;
+
+            console.log("Redirecting to Intent:", intentUri);
+
+            // 4. Trigger the redirect
+            window.location.href = intentUri;
+
         } catch (e) {
-            console.log('Android interface not available');
+            console.error("Error building intent URL:", e);
+            // Fallback to standard URL
+            window.location.href = fullHttpsUrl;
         }
-        /*]]>*/
-    </script>
+    }
+
+    // Run immediately
+    setTimeout(forceRedirect, 500);
+
+    /*]]>*/
+</script>
 </body>
 </html>
