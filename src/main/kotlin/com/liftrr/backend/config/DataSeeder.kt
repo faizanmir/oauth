@@ -112,7 +112,9 @@ class DataSeeder(
                 clientSecret = passwordEncoder.encode("mobile-secret")!!,
                 clientName = "Liftrr Mobile Application",
                 grantTypes = mutableSetOf("password", "refresh_token"),
-                redirectUris = mutableSetOf(),
+                redirectUris = mutableSetOf(
+                    "com.learn.tokenviaoauth2://callback/oauth2redirect"  // Android app deep link
+                ),
                 scopes = mutableSetOf("read", "write", "openid"),
                 accessTokenTimeToLive = 3600,
                 refreshTokenTimeToLive = 86400,
