@@ -30,13 +30,17 @@ class SecurityConfig(
                     .requestMatchers("/h2-console/**").permitAll()
                     .requestMatchers("/api/auth/register", "/api/auth/login").permitAll()
                     .requestMatchers("/auth/**").permitAll()  // Allow web login/register pages
-                    .requestMatchers("/css/**", "/js/**", "/images/**").permitAll()  // Static resources
+                    .requestMatchers("/css/**", "/js/**", "/images/**", "/favicon.ico").permitAll()  // Static resources
                     .requestMatchers("/actuator/health").permitAll()
                     .requestMatchers("/.well-known/**").permitAll()  // Allow assetlinks.json and apple-app-site-association
                     .requestMatchers("/error").permitAll()
                     .anyRequest().authenticated()
             }
-            .formLogin(Customizer.withDefaults())
+            .formLogin { formLogin ->
+                formLogin
+                    .loginPage("/auth/login")  // Use our custom login page
+                    .permitAll()
+            }
             .httpBasic(Customizer.withDefaults())
             .csrf { csrf ->
                 csrf.ignoringRequestMatchers("/h2-console/**", "/api/auth/**")
