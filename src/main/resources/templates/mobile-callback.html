@@ -59,7 +59,7 @@
         </p>
 
         <!-- OAuth callback info (for debugging) -->
-        <div class="callback-info" th:if="${code} or ${token}">
+        <div class="callback-info" th:if="${code} or ${param.access_token}">
             <div th:if="${code}">
                 <strong>Authorization Code:</strong><br>
                 <code th:text="${code}">code</code>
@@ -68,8 +68,12 @@
                 <strong>State:</strong><br>
                 <code th:text="${state}">state</code>
             </div>
-            <div th:if="${token}" style="margin-top: 8px;">
-                <strong>Token received</strong> ✓
+            <div th:if="${param.access_token}" style="margin-top: 8px;">
+                <strong>✓ Access Token received</strong><br>
+                <small style="color: #666;">Token will be stored securely in app</small>
+            </div>
+            <div th:if="${param.refresh_token}" style="margin-top: 8px;">
+                <strong>✓ Refresh Token received</strong>
             </div>
         </div>
 
@@ -127,11 +131,15 @@
         // Send message to Android app (if opened in WebView)
         try {
             if (window.Android && window.Android.onAuthCallback) {
+                // Parse URL parameters for tokens
+                const urlParams = new URLSearchParams(window.location.search);
                 const data = {
                     code: /*[[${code}]]*/ null,
                     state: /*[[${state}]]*/ null,
-                    token: /*[[${token}]]*/ null,
-                    refreshToken: /*[[${refreshToken}]]*/ null
+                    accessToken: urlParams.get('access_token'),
+                    refreshToken: urlParams.get('refresh_token'),
+                    expiresIn: urlParams.get('expires_in'),
+                    username: urlParams.get('username')
                 };
                 window.Android.onAuthCallback(JSON.stringify(data));
             }

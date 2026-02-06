@@ -25,9 +25,16 @@
         </button>
     </div>
 
-    <script>
+    <script th:inline="javascript">
+        /*<![CDATA[*/
         let count = 3;
         const countdownEl = document.getElementById('countdown');
+
+        // Get tokens from server
+        const accessToken = /*[[${accessToken}]]*/ null;
+        const refreshToken = /*[[${refreshToken}]]*/ null;
+        const expiresIn = /*[[${expiresIn}]]*/ null;
+        const userData = /*[[${userData}]]*/ null;
 
         // Countdown
         const interval = setInterval(() => {
@@ -46,10 +53,18 @@
                 window.close();
             }
 
-            // Fallback: redirect to a deep link that opens the app
-            const redirectUrl = /* [[${redirectUrl}]] */ null;
+            // Build redirect URL with tokens for mobile app
+            const redirectUrl = /*[[${redirectUrl}]]*/ null;
             if (redirectUrl) {
-                window.location.href = redirectUrl;
+                // Append tokens to redirect URL
+                const url = new URL(redirectUrl);
+                if (accessToken) url.searchParams.set('access_token', accessToken);
+                if (refreshToken) url.searchParams.set('refresh_token', refreshToken);
+                if (expiresIn) url.searchParams.set('expires_in', expiresIn);
+                if (userData && userData.username) url.searchParams.set('username', userData.username);
+
+                console.log('Redirecting to:', url.toString());
+                window.location.href = url.toString();
             } else {
                 // Default: try to close or redirect to homepage
                 setTimeout(() => {
@@ -61,12 +76,18 @@
         // Send message to Android app (if WebView or Custom Tab supports it)
         try {
             if (window.Android && window.Android.onLoginSuccess) {
-                const userData = /* [[${userData}]] */ null;
-                window.Android.onLoginSuccess(JSON.stringify(userData));
+                const data = {
+                    accessToken: accessToken,
+                    refreshToken: refreshToken,
+                    expiresIn: expiresIn,
+                    userData: userData
+                };
+                window.Android.onLoginSuccess(JSON.stringify(data));
             }
         } catch (e) {
             console.log('Android interface not available');
         }
+        /*]]>*/
     </script>
 </body>
 </html>

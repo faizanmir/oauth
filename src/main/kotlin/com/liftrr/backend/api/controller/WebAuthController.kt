@@ -4,6 +4,7 @@ import com.liftrr.backend.domain.entity.Role
 import com.liftrr.backend.domain.entity.User
 import com.liftrr.backend.domain.repository.RoleRepository
 import com.liftrr.backend.domain.repository.UserRepository
+import com.liftrr.backend.security.service.TokenService
 import jakarta.servlet.http.HttpSession
 import org.springframework.security.authentication.AuthenticationManager
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
@@ -23,7 +24,8 @@ class WebAuthController(
     private val userRepository: UserRepository,
     private val roleRepository: RoleRepository,
     private val passwordEncoder: PasswordEncoder,
-    private val authenticationManager: AuthenticationManager
+    private val authenticationManager: AuthenticationManager,
+    private val tokenService: TokenService
 ) {
 
     @GetMapping("/login")
@@ -72,6 +74,9 @@ class WebAuthController(
                         .orElseThrow { IllegalStateException("User not found") }
                 }
 
+            // Generate JWT tokens for mobile app
+            val tokens = tokenService.generateTokens(authentication, user.username)
+
             // Prepare user data for success page
             model.addAttribute("title", "Welcome Back!")
             model.addAttribute("message", "You have been successfully logged in as ${user.username}")
@@ -79,6 +84,11 @@ class WebAuthController(
                 "username" to user.username,
                 "email" to user.email
             ))
+
+            // Pass tokens to success page
+            model.addAttribute("accessToken", tokens.accessToken)
+            model.addAttribute("refreshToken", tokens.refreshToken)
+            model.addAttribute("expiresIn", tokens.expiresIn)
 
             // Pass redirect URL to success page if provided
             redirectUrl?.let { model.addAttribute("redirectUrl", it) }
@@ -175,6 +185,9 @@ class WebAuthController(
                 SecurityContextHolder.getContext()
             )
 
+            // Generate JWT tokens for mobile app
+            val tokens = tokenService.generateTokens(authentication, newUser.username)
+
             // Show success page
             model.addAttribute("title", "Account Created!")
             model.addAttribute("message", "Welcome to our platform, $username!")
@@ -182,6 +195,11 @@ class WebAuthController(
                 "username" to newUser.username,
                 "email" to newUser.email
             ))
+
+            // Pass tokens to success page
+            model.addAttribute("accessToken", tokens.accessToken)
+            model.addAttribute("refreshToken", tokens.refreshToken)
+            model.addAttribute("expiresIn", tokens.expiresIn)
 
             // Pass redirect URL to success page if provided
             redirectUrl?.let { model.addAttribute("redirectUrl", it) }
