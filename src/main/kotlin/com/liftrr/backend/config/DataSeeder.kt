@@ -82,8 +82,8 @@ class DataSeeder(
                 clientName = "Liftrr Web Application",
                 grantTypes = mutableSetOf("authorization_code", "refresh_token"),
                 redirectUris = mutableSetOf(
-                    "https://rabbit.com/oauth2/callback",
-                    "https://rabbit.com/authorized",
+                    "https://web-production-2b788.up.railway.app/oauth2/callback",
+                    "https://web-production-2b788.up.railway.app/authorized",
                     "http://localhost:3000/authorized",  // Keep for local development
                     "http://localhost:3000/callback"
                 ),

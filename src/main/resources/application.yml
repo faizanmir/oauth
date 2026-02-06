@@ -29,7 +29,7 @@ spring:
   security:
     oauth2:
       authorizationserver:
-        issuer: https://rabbit.com
+        issuer: https://web-production-2b788.up.railway.app
 
 # Server Configuration
 server:

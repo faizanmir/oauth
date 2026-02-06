@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#11998e">
+    <title>Success!</title>
+    <link rel="stylesheet" th:href="@{/css/auth.css}">
+</head>
+<body>
+    <div class="auth-container success-container">
+        <div class="success-icon">✓</div>
+        <h2 th:text="${title ?: 'Success!'}">Success!</h2>
+        <p th:text="${message ?: 'Operation completed successfully'}">
+            You have been successfully logged in
+        </p>
+
+        <div class="countdown" id="countdown">3</div>
+        <p style="color: #999; font-size: 14px; margin-top: 10px;">
+            Redirecting to app...
+        </p>
+
+        <button class="btn" onclick="closeWindow()" style="margin-top: 20px;">
+            Return to App Now
+        </button>
+    </div>
+
+    <script>
+        let count = 3;
+        const countdownEl = document.getElementById('countdown');
+
+        // Countdown
+        const interval = setInterval(() => {
+            count--;
+            countdownEl.textContent = count;
+
+            if (count <= 0) {
+                clearInterval(interval);
+                closeWindow();
+            }
+        }, 1000);
+
+        function closeWindow() {
+            // Try to close the Chrome Custom Tab
+            if (window.opener || window.history.length <= 1) {
+                window.close();
+            }
+
+            // Fallback: redirect to a deep link that opens the app
+            const redirectUrl = /* [[${redirectUrl}]] */ null;
+            if (redirectUrl) {
+                window.location.href = redirectUrl;
+            } else {
+                // Default: try to close or redirect to homepage
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 500);
+            }
+        }
+
+        // Send message to Android app (if WebView or Custom Tab supports it)
+        try {
+            if (window.Android && window.Android.onLoginSuccess) {
+                const userData = /* [[${userData}]] */ null;
+                window.Android.onLoginSuccess(JSON.stringify(userData));
+            }
+        } catch (e) {
+            console.log('Android interface not available');
+        }
+    </script>
+</body>
+</html>
