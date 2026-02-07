@@ -14,10 +14,10 @@ spring:
     database-platform: org.hibernate.dialect.H2Dialect
     hibernate:
       ddl-auto: create-drop
-    show-sql: true
+    show-sql: false  # Set to true for debugging SQL queries
     properties:
       hibernate:
-        format_sql: true
+        format_sql: false
 
   # H2 Console Configuration
   h2:
@@ -39,6 +39,6 @@ server:
 logging:
   level:
     root: INFO
-    org.springframework.security: DEBUG
-    org.springframework.security.oauth2: DEBUG
-    com.liftrr.backend: DEBUG
+    org.springframework.security: INFO
+    org.springframework.security.oauth2: INFO
+    com.liftrr.backend: INFO
