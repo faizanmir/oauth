@@ -74,15 +74,12 @@
             return;
         }
 
-            // Build redirect URL with tokens for mobile app
-            const redirectUrl = /*[[${redirectUrl}]]*/ null;
-            if (redirectUrl) {
-                // Append tokens to redirect URL
-                const url = new URL(redirectUrl);
-                if (accessToken) url.searchParams.set('access_token', accessToken);
-                if (refreshToken) url.searchParams.set('refresh_token', refreshToken);
-                if (expiresIn) url.searchParams.set('expires_in', expiresIn);
-                if (userData && userData.username) url.searchParams.set('username', userData.username);
+        // 1. Build URL parameters with tokens
+        const params = new URLSearchParams();
+        if (accessToken) params.set('access_token', accessToken);
+        if (refreshToken) params.set('refresh_token', refreshToken);
+        if (expiresIn) params.set('expires_in', expiresIn);
+        if (userData && userData.username) params.set('username', userData.username);
 
         // 2. Build the standard HTTPS URL (for fallback/debugging)
         // e.g., https://web-production.../oauth2/callback?access_token=...
@@ -103,6 +100,7 @@
             const intentUri = `intent://${host}${path}?${params.toString()}#Intent;scheme=${scheme};package=${ANDROID_PACKAGE_NAME};S.browser_fallback_url=${encodeURIComponent(fullHttpsUrl)};end`;
 
             console.log("Redirecting to Intent:", intentUri);
+            console.log("Tokens:", { accessToken: !!accessToken, refreshToken: !!refreshToken, expiresIn });
 
             // 4. Trigger the redirect
             window.location.href = intentUri;

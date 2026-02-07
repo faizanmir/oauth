@@ -89,7 +89,7 @@
     <script th:inline="javascript">
         /*<![CDATA[*/
         const queryParams = /*[[${queryParams}]]*/ '';
-        const baseUrl = 'https://web-production-2b788.up.railway.app/oauth2/callback';
+        const baseUrl = /*[[${baseUrl}]]*/ 'https://web-production-2b788.up.railway.app/oauth2/callback';
 
         let count = 3;
         const countdownEl = document.getElementById('countdown');

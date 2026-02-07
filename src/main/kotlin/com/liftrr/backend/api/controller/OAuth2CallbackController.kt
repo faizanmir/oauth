@@ -41,6 +41,17 @@ class OAuth2CallbackController {
         model.addAttribute("code", code)
         model.addAttribute("state", state)
 
+        // Build the base callback URL dynamically
+        val scheme = request.scheme
+        val serverName = request.serverName
+        val serverPort = request.serverPort
+        val baseUrl = if ((scheme == "https" && serverPort == 443) || (scheme == "http" && serverPort == 80)) {
+            "$scheme://$serverName/oauth2/callback"
+        } else {
+            "$scheme://$serverName:$serverPort/oauth2/callback"
+        }
+        model.addAttribute("baseUrl", baseUrl)
+
         // Build the query parameters to pass to the app
         val queryParams = mutableListOf<String>()
         code?.let { queryParams.add("code=$it") }
@@ -83,6 +94,17 @@ class OAuth2CallbackController {
         model.addAttribute("state", state)
         model.addAttribute("token", token)
         model.addAttribute("refreshToken", refresh_token)
+
+        // Build the base callback URL dynamically
+        val scheme = request.scheme
+        val serverName = request.serverName
+        val serverPort = request.serverPort
+        val baseUrl = if ((scheme == "https" && serverPort == 443) || (scheme == "http" && serverPort == 80)) {
+            "$scheme://$serverName/mobile/callback"
+        } else {
+            "$scheme://$serverName:$serverPort/mobile/callback"
+        }
+        model.addAttribute("baseUrl", baseUrl)
 
         // Build the query parameters
         val queryParams = mutableListOf<String>()
