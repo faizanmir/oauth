@@ -31,6 +31,12 @@
     <div class="spinner"></div>
     <div class="countdown" id="countdown">3</div>
 
+    <!-- Debug Info (visible on page) -->
+    <div id="debugInfo" style="margin-top: 20px; padding: 10px; background: #f0f0f0; border-radius: 5px; font-size: 12px; text-align: left; font-family: monospace;">
+        <strong>Debug Info:</strong><br>
+        <div id="debugContent">Loading...</div>
+    </div>
+
     <p style="color: #999; font-size: 14px; margin-top: 10px;">
         If the app doesn't open, click below:
     </p>
@@ -58,7 +64,7 @@
     const userData = /*[[${userData}]]*/ null;
     const baseRedirectUrl = /*[[${redirectUrl}]]*/ '';
 
-    // DEBUG: Log all values
+    // DEBUG: Log all values (console)
     console.log("=== SUCCESS PAGE LOADED ===");
     console.log("Access Token:", accessToken ? `Present (${accessToken.length} chars)` : "MISSING");
     console.log("Refresh Token:", refreshToken ? `Present (${refreshToken.length} chars)` : "MISSING");
@@ -66,10 +72,22 @@
     console.log("User Data:", userData);
     console.log("Base Redirect URL:", baseRedirectUrl || "MISSING");
 
+    // DEBUG: Show visible debug info on page
+    const debugEl = document.getElementById('debugContent');
+    const debugInfo = `
+        Access Token: ${accessToken ? '✅ Present (' + accessToken.substring(0, 20) + '...)' : '❌ MISSING'}<br>
+        Refresh Token: ${refreshToken ? '✅ Present (' + refreshToken.substring(0, 20) + '...)' : '❌ MISSING'}<br>
+        Expires In: ${expiresIn || '❌ MISSING'}<br>
+        Username: ${userData?.username || '❌ MISSING'}<br>
+        <strong>Redirect URL: ${baseRedirectUrl ? '✅ ' + baseRedirectUrl : '❌ MISSING - THIS IS THE PROBLEM!'}</strong>
+    `;
+    debugEl.innerHTML = debugInfo;
+
     if (!baseRedirectUrl) {
         console.error("❌ CRITICAL: No redirect URL provided! Cannot redirect to app.");
         console.error("This usually means redirect_url was not passed to /auth/login");
-        alert("ERROR: No redirect URL configured. Cannot return to app.");
+        debugEl.innerHTML += '<br><br><strong style="color: red;">⚠️ ERROR: No redirect URL! Cannot redirect to app.</strong><br>The login URL must include ?redirect_url=...';
+        // Don't alert, just show on page
     }
 
     // Timer Logic
@@ -83,8 +101,11 @@
     }, 1000);
 
     function forceRedirect() {
+        console.log("forceRedirect() called");
+
         if (!baseRedirectUrl) {
             console.error("No redirect URL found");
+            document.getElementById('debugContent').innerHTML += '<br><strong style="color: red;">❌ Redirect FAILED: No redirect URL</strong>';
             return;
         }
 
@@ -107,8 +128,13 @@
             username: userData?.username
         });
 
+        // Show on page
+        document.getElementById('debugContent').innerHTML += `<br><br><strong style="color: green;">🚀 Redirecting now to:</strong><br>${fullHttpsUrl.substring(0, 100)}...`;
+
         // 3. Redirect using standard HTTPS URL (App Links will intercept it)
+        console.log("Executing window.location.href =", fullHttpsUrl);
         window.location.href = fullHttpsUrl;
+        console.log("Redirect executed!");
     }
 
     // Run immediately
