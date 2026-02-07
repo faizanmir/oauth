@@ -54,6 +54,10 @@ class WebAuthController(
         session: HttpSession,
         model: Model
     ): String {
+        println("=== LOGIN REQUEST ===")
+        println("Username: $username")
+        println("Redirect URL: ${redirectUrl ?: "NOT PROVIDED"}")
+
         return try {
             // Authenticate user
             val authentication = authenticationManager.authenticate(
@@ -91,8 +95,12 @@ class WebAuthController(
             model.addAttribute("expiresIn", tokens.expiresIn)
 
             // Pass redirect URL to success page if provided
-            redirectUrl?.let { model.addAttribute("redirectUrl", it) }
+            redirectUrl?.let {
+                println("=== LOGIN: Setting redirectUrl in model: $it ===")
+                model.addAttribute("redirectUrl", it)
+            } ?: println("=== LOGIN WARNING: No redirectUrl to set in model ===")
 
+            println("=== LOGIN: Rendering success page with tokens ===")
             "success"
         } catch (e: Exception) {
             model.addAttribute("error", "Invalid username or password")
@@ -202,8 +210,12 @@ class WebAuthController(
             model.addAttribute("expiresIn", tokens.expiresIn)
 
             // Pass redirect URL to success page if provided
-            redirectUrl?.let { model.addAttribute("redirectUrl", it) }
+            redirectUrl?.let {
+                println("=== REGISTER: Setting redirectUrl in model: $it ===")
+                model.addAttribute("redirectUrl", it)
+            } ?: println("=== REGISTER WARNING: No redirectUrl to set in model ===")
 
+            println("=== REGISTER: Rendering success page with tokens ===")
             "success"
         } catch (e: Exception) {
             model.addAttribute("error", "Registration failed: ${e.message}")
