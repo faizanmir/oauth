@@ -37,11 +37,13 @@ class SecurityConfig(
                     .requestMatchers("/error").permitAll()
                     .anyRequest().authenticated()
             }
-            .formLogin { formLogin ->
-                formLogin
-                    .loginPage("/auth/login")  // Use our custom login page
-                    .permitAll()
-            }
+            // Disable default form login since we handle authentication manually in WebAuthController
+            // This prevents Spring Security from redirecting to / after successful login
+            // .formLogin { formLogin ->
+            //     formLogin
+            //         .loginPage("/auth/login")
+            //         .permitAll()
+            // }
             .httpBasic(Customizer.withDefaults())
             .csrf { csrf ->
                 csrf.ignoringRequestMatchers("/h2-console/**", "/api/auth/**")
