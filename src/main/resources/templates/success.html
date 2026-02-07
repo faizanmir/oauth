@@ -58,6 +58,20 @@
     const userData = /*[[${userData}]]*/ null;
     const baseRedirectUrl = /*[[${redirectUrl}]]*/ '';
 
+    // DEBUG: Log all values
+    console.log("=== SUCCESS PAGE LOADED ===");
+    console.log("Access Token:", accessToken ? `Present (${accessToken.length} chars)` : "MISSING");
+    console.log("Refresh Token:", refreshToken ? `Present (${refreshToken.length} chars)` : "MISSING");
+    console.log("Expires In:", expiresIn || "MISSING");
+    console.log("User Data:", userData);
+    console.log("Base Redirect URL:", baseRedirectUrl || "MISSING");
+
+    if (!baseRedirectUrl) {
+        console.error("❌ CRITICAL: No redirect URL provided! Cannot redirect to app.");
+        console.error("This usually means redirect_url was not passed to /auth/login");
+        alert("ERROR: No redirect URL configured. Cannot return to app.");
+    }
+
     // Timer Logic
     const interval = setInterval(() => {
         count--;
@@ -81,35 +95,20 @@
         if (expiresIn) params.set('expires_in', expiresIn);
         if (userData && userData.username) params.set('username', userData.username);
 
-        // 2. Build the standard HTTPS URL (for fallback/debugging)
-        // e.g., https://web-production.../oauth2/callback?access_token=...
+        // 2. Build the standard HTTPS URL
+        // Android App Links are verified, so HTTPS URLs will automatically open the app
         const fullHttpsUrl = baseRedirectUrl + (baseRedirectUrl.includes('?') ? '&' : '?') + params.toString();
 
-        // 3. Construct the ANDROID INTENT URL
-        // This is the magic part that forces the app to open even on HTTPS links
-        // Format: intent://<host>/<path>?<query>#Intent;scheme=https;package=<app_id>;end;
+        console.log("Redirecting to:", fullHttpsUrl);
+        console.log("Tokens:", {
+            accessToken: !!accessToken,
+            refreshToken: !!refreshToken,
+            expiresIn: expiresIn,
+            username: userData?.username
+        });
 
-        // Parse the base URL to get host and path
-        try {
-            const urlObj = new URL(baseRedirectUrl);
-            const scheme = urlObj.protocol.replace(':', ''); // 'https'
-            const host = urlObj.host;                        // 'web-production...'
-            const path = urlObj.pathname;                    // '/oauth2/callback'
-
-            // Construct the Intent URI
-            const intentUri = `intent://${host}${path}?${params.toString()}#Intent;scheme=${scheme};package=${ANDROID_PACKAGE_NAME};S.browser_fallback_url=${encodeURIComponent(fullHttpsUrl)};end`;
-
-            console.log("Redirecting to Intent:", intentUri);
-            console.log("Tokens:", { accessToken: !!accessToken, refreshToken: !!refreshToken, expiresIn });
-
-            // 4. Trigger the redirect
-            window.location.href = intentUri;
-
-        } catch (e) {
-            console.error("Error building intent URL:", e);
-            // Fallback to standard URL
-            window.location.href = fullHttpsUrl;
-        }
+        // 3. Redirect using standard HTTPS URL (App Links will intercept it)
+        window.location.href = fullHttpsUrl;
     }
 
     // Run immediately
