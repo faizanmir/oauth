@@ -22,7 +22,7 @@ class SecurityConfig(
 ) {
 
     @Bean
-    @Order(2)
+    @Order(3)
     fun defaultSecurityFilterChain(http: HttpSecurity): SecurityFilterChain {
         http
             .authorizeHttpRequests { authorize ->
@@ -30,20 +30,22 @@ class SecurityConfig(
                     .requestMatchers("/h2-console/**").permitAll()
                     .requestMatchers("/api/auth/register", "/api/auth/login").permitAll()
                     .requestMatchers("/auth/**").permitAll()  // Allow web login/register pages
-                    .requestMatchers("/oauth2/callback", "/mobile/callback").permitAll()  // Allow OAuth callbacks for App Links
+                    .requestMatchers("/oauth2/callback").permitAll()  // App Links fallback page
                     .requestMatchers("/css/**", "/js/**", "/images/**", "/favicon.ico").permitAll()  // Static resources
                     .requestMatchers("/actuator/health").permitAll()
                     .requestMatchers("/.well-known/**").permitAll()  // Allow assetlinks.json and apple-app-site-association
                     .requestMatchers("/error").permitAll()
                     .anyRequest().authenticated()
             }
-            // Disable default form login since we handle authentication manually in WebAuthController
-            // This prevents Spring Security from redirecting to / after successful login
-            // .formLogin { formLogin ->
-            //     formLogin
-            //         .loginPage("/auth/login")
-            //         .permitAll()
-            // }
+            // Login page for the authorization server; the default success handler
+            // resumes the saved /oauth2/authorize request.
+            .formLogin { formLogin ->
+                formLogin
+                    .loginPage("/auth/login")
+                    .loginProcessingUrl("/auth/login")
+                    .failureUrl("/auth/login?error")
+                    .permitAll()
+            }
             .httpBasic(Customizer.withDefaults())
             .csrf { csrf ->
                 csrf.ignoringRequestMatchers("/h2-console/**", "/api/auth/**")

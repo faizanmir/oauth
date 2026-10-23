@@ -106,20 +106,19 @@ class DataSeeder(
                 requireProofKey = false
             )
 
-            // Mobile client with Password Grant
+            // Mobile client with Authorization Code + PKCE
             val mobileClient = OAuth2Client(
                 clientId = "liftrr-mobile-client",
                 clientSecret = passwordEncoder.encode("mobile-secret")!!,
                 clientName = "Liftrr Mobile Application",
-                grantTypes = mutableSetOf("password", "refresh_token"),
+                grantTypes = mutableSetOf("authorization_code", "refresh_token"),
                 redirectUris = mutableSetOf(
-                    "https://web-production-2b788.up.railway.app/oauth2/callback",  // Android App Links
-                    "https://web-production-2b788.up.railway.app/mobile/callback"   // Alternative callback
+                    "https://web-production-2b788.up.railway.app/oauth2/callback"  // Android App Links
                 ),
-                scopes = mutableSetOf("read", "write", "openid"),
+                scopes = mutableSetOf("openid", "profile", "read", "write"),
                 accessTokenTimeToLive = 3600,
                 refreshTokenTimeToLive = 86400,
-                requireProofKey = false
+                requireProofKey = true
             )
 
             oAuth2ClientRepository.saveAll(listOf(webClient, serviceClient, mobileClient))

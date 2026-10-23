@@ -39,7 +39,7 @@ class AuthorizationServerConfig {
         http
             .exceptionHandling { exceptions ->
                 exceptions.defaultAuthenticationEntryPointFor(
-                    LoginUrlAuthenticationEntryPoint("/login"),
+                    LoginUrlAuthenticationEntryPoint("/auth/login"),
                     MediaTypeRequestMatcher(MediaType.TEXT_HTML)
                 )
             }

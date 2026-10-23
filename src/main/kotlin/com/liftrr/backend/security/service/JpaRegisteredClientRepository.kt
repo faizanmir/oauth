@@ -48,7 +48,6 @@ class JpaRegisteredClientRepository(
                 "authorization_code" -> builder.authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
                 "refresh_token" -> builder.authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
                 "client_credentials" -> builder.authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)
-                "password" -> builder.authorizationGrantType(AuthorizationGrantType("password"))
             }
         }
 
