@@ -73,7 +73,7 @@ class CustomUserDetailsServiceTest {
             customUserDetailsService.loadUserByUsername("nonexistent")
         }
 
-        assertEquals("User not found with username: nonexistent", exception.message)
+        assertEquals("User not found with username or email: nonexistent", exception.message)
         verify(userRepository, times(1)).findByUsername("nonexistent")
     }
 }

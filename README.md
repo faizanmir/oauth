@@ -11,24 +11,28 @@ Production-ready OAuth 2.0 Authorization Server built with **Spring Boot 3.3.5**
 - ✅ **Android App Links** support for mobile apps
 - ✅ **Web-based login** via Chrome Custom Tabs
 - ✅ **User registration** and management
-- ✅ **Secure token delivery** to mobile apps via HTTPS deep links
+- ✅ **Authorization Code + PKCE** for the mobile app (tokens never appear in a URL)
 
 ---
 
 ## Architecture
 
 ```
-Android App
+Android App (generates PKCE verifier + state)
     ↓
-Chrome Custom Tab (HTTPS)
+Chrome Custom Tab → GET /oauth2/authorize?response_type=code&code_challenge=…&code_challenge_method=S256
     ↓
 OAuth Server (this project)
-    ├─ Web Login (/auth/login)
-    ├─ Generate JWT Tokens
-    └─ Redirect with tokens → Android App Links
-    ↓
-Mobile App (tokens stored securely)
+    ├─ Not signed in → 302 /auth/login (or /auth/register)
+    ├─ Login succeeds → resumes the saved /oauth2/authorize request
+    ├─ Consent page
+    └─ 302 https://web-production-2b788.up.railway.app/oauth2/callback?code=…&state=…
+    ↓  (intercepted by Android App Links)
+Android App → POST /oauth2/token (code + code_verifier) → access/refresh tokens
 ```
+
+Only a short-lived, single-use authorization code travels through the browser; tokens are
+returned exclusively from the back-channel `/oauth2/token` call.
 
 ---
 
@@ -49,14 +53,15 @@ backend/
 │   ├── kotlin/com/liftrr/backend/
 │   │   ├── api/controller/
 │   │   │   ├── WebAuthController.kt      # Web login/register
-│   │   │   ├── OAuth2CallbackController.kt # Mobile callbacks
+│   │   │   ├── OAuth2CallbackController.kt # /oauth2/callback fallback page
 │   │   │   └── UserController.kt         # User API
 │   │   ├── security/
 │   │   │   ├── config/
 │   │   │   │   ├── SecurityConfig.kt     # Security configuration
 │   │   │   │   └── AuthorizationServerConfig.kt # OAuth2 config
 │   │   │   └── service/
-│   │   │       └── TokenService.kt       # JWT token generation
+│   │   │       ├── CustomUserDetailsService.kt
+│   │   │       └── JpaRegisteredClientRepository.kt
 │   │   ├── domain/entity/
 │   │   │   ├── User.kt
 │   │   │   ├── Role.kt
@@ -67,7 +72,8 @@ backend/
 │       ├── templates/
 │       │   ├── login.html                # Web login page
 │       │   ├── register.html             # Registration page
-│       │   ├── success.html              # Success page with redirect
+│       │   ├── success.html              # Simple status page (logout)
+│       │   ├── mobile-callback.html      # Static fallback if App Links are not verified
 │       │   └── home.html                 # Authenticated home
 │       ├── static/
 │       │   ├── css/auth.css
@@ -126,7 +132,7 @@ open http://localhost:8080/auth/login
 
 ### Critical: What You Must Configure
 
-For Android App Links to work correctly and redirect tokens to your mobile app, you **MUST** complete these steps:
+For Android App Links to work correctly and deliver the authorization code to your mobile app, you **MUST** complete these steps:
 
 ### Step 1: Create assetlinks.json
 
@@ -177,23 +183,24 @@ SHA256: 08:DC:DE:1F:35:81:EB:D9:C2:D6:58:F7:EC:E8:98:8C:BB:D8:93:A5:1E:31:18:17:
 // Mobile client configuration
 val mobileClient = OAuth2Client(
     clientId = "liftrr-mobile-client",           // Must match Android app
-    clientSecret = passwordEncoder.encode("mobile-secret"),  // Must match Android app
+    clientSecret = passwordEncoder.encode("mobile-secret"),  // client_secret_basic
     clientName = "Liftrr Mobile Application",
-    grantTypes = mutableSetOf("password", "refresh_token"),
+    grantTypes = mutableSetOf("authorization_code", "refresh_token"),
     redirectUris = mutableSetOf(
-        "https://YOUR-PRODUCTION-DOMAIN.com/oauth2/callback",  // CHANGE THIS
-        "https://YOUR-PRODUCTION-DOMAIN.com/mobile/callback"   // CHANGE THIS
+        "https://web-production-2b788.up.railway.app/oauth2/callback"  // Android App Links
     ),
-    scopes = mutableSetOf("read", "write", "openid"),
+    scopes = mutableSetOf("openid", "profile", "read", "write"),
     accessTokenTimeToLive = 3600,      // 1 hour
     refreshTokenTimeToLive = 86400,    // 24 hours
-    requireProofKey = false
+    requireProofKey = true             // PKCE (S256) required
 )
 ```
 
-**⚠️ IMPORTANT**: The redirect URIs must match:
+The client also requires the user's consent on `/oauth2/authorize`.
+
+**⚠️ IMPORTANT**: The redirect URI must match exactly:
 - Your production domain (not localhost)
-- The domain in your Android app's `WebAuthHelper.kt`
+- The redirect URI the Android app sends in the authorize and token requests
 
 ### Step 3: Update Issuer URL
 
@@ -209,93 +216,32 @@ spring:
 
 This must match your deployed URL (e.g., `https://web-production-2b788.up.railway.app`)
 
-### Step 4: Disable Form Login (CRITICAL)
+### Step 4: Login Page for the Authorization Server
 
 **File**: `src/main/kotlin/com/liftrr/backend/security/config/SecurityConfig.kt`
 
-Ensure this configuration is in place:
+`/auth/login` is the authorization server's login page. `AuthorizationServerConfig` sends
+unauthenticated HTML requests to `/oauth2/authorize` to it via
+`LoginUrlAuthenticationEntryPoint("/auth/login")`, and Spring saves the original authorize request
+in the session. The default chain uses Spring Security `formLogin`:
 
 ```kotlin
-@Bean
-@Order(2)
-fun defaultSecurityFilterChain(http: HttpSecurity): SecurityFilterChain {
-    http
-        .authorizeHttpRequests { authorize ->
-            authorize
-                .requestMatchers("/auth/**").permitAll()
-                .requestMatchers("/oauth2/callback", "/mobile/callback").permitAll()
-                .requestMatchers("/.well-known/**").permitAll()
-                .requestMatchers("/css/**", "/js/**", "/images/**").permitAll()
-                .anyRequest().authenticated()
-        }
-        // CRITICAL: formLogin() is DISABLED
-        // If enabled, it redirects to /home instead of success.html
-        // This breaks mobile app redirect flow
-        .httpBasic(Customizer.withDefaults())
-        // ... rest of config
+.formLogin { formLogin ->
+    formLogin
+        .loginPage("/auth/login")
+        .loginProcessingUrl("/auth/login")
+        .failureUrl("/auth/login?error")
+        .permitAll()
 }
 ```
 
-**Why this matters**: If `.formLogin()` is enabled, Spring Security automatically redirects authenticated users to the home page (`/`) instead of rendering `success.html`, which breaks the mobile redirect flow.
-
-### Step 5: Verify WebAuthController
-
-**File**: `src/main/kotlin/com/liftrr/backend/api/controller/WebAuthController.kt`
-
-Ensure the login endpoint returns the success template:
-
-```kotlin
-@PostMapping("/login")
-fun login(..., redirectUrl: String?, ...): String {
-    // ... authentication logic ...
-
-    // Generate JWT tokens
-    val tokens = tokenService.generateTokens(authentication, user.username)
-
-    // CRITICAL: Add tokens to model
-    model.addAttribute("accessToken", tokens.accessToken)
-    model.addAttribute("refreshToken", tokens.refreshToken)
-    model.addAttribute("expiresIn", tokens.expiresIn)
-
-    // CRITICAL: Pass redirect URL to template
-    redirectUrl?.let { model.addAttribute("redirectUrl", it) }
-
-    return "success"  // Must return success.html template
-}
-```
-
-### Step 6: Verify success.html Redirect Logic
-
-**File**: `src/main/resources/templates/success.html`
-
-The redirect logic should use HTTPS URLs (NOT Intent URIs):
-
-```javascript
-function forceRedirect() {
-    if (!baseRedirectUrl) {
-        console.error("Redirect failed: No redirect URL provided");
-        return;
-    }
-
-    // Build URL parameters with tokens
-    const params = new URLSearchParams();
-    if (accessToken) params.set('access_token', accessToken);
-    if (refreshToken) params.set('refresh_token', refreshToken);
-    if (expiresIn) params.set('expires_in', expiresIn);
-    if (userData && userData.username) params.set('username', userData.username);
-
-    // Build HTTPS URL - Android App Links will intercept this
-    const fullHttpsUrl = baseRedirectUrl + '?' + params.toString();
-
-    // Redirect - this triggers Android App Links
-    window.location.href = fullHttpsUrl;
-}
-
-// Auto-redirect after 500ms
-setTimeout(forceRedirect, 500);
-```
-
-**Why HTTPS URLs**: Android App Links only work with HTTPS URLs. The verified app will automatically intercept the HTTPS callback URL and open.
+- `POST /auth/login` (`username`, `password`, CSRF token) is handled by Spring Security; on success
+  the saved `/oauth2/authorize` request is resumed, on failure the user lands on `/auth/login?error`
+  and a later correct login still resumes the saved request.
+- `POST /auth/register` (in `WebAuthController`) creates the user, signs them in and redirects to the
+  saved request URL (or `/` if there is none).
+- `GET /oauth2/callback` renders `mobile-callback.html`, a static page shown only if App Links are not
+  verified. It never echoes the code or state.
 
 ---
 
@@ -329,7 +275,7 @@ setTimeout(forceRedirect, 500);
 
 5. **Update configurations** with this URL:
    - `application.yml` → issuer
-   - `DataSeeder.kt` → redirectUris
+   - `DataSeeder.kt` → redirectUris (`https://<domain>/oauth2/callback`)
    - Android app's `WebAuthHelper.kt` → BASE_URL
 
 ### Option 2: Heroku
@@ -379,8 +325,9 @@ SELECT * FROM oauth2_client WHERE client_id = 'liftrr-mobile-client';
 
 Verify:
 - ✅ `redirect_uris` contains your production domain
-- ✅ `grant_types` includes "password" and "refresh_token"
-- ✅ `scopes` includes "read", "write", "openid"
+- ✅ `grant_types` is "authorization_code" and "refresh_token"
+- ✅ `scopes` includes "openid", "profile", "read", "write"
+- ✅ PKCE is required (`require_proof_key`)
 
 ### 3. Issuer URL is Correct
 
@@ -397,39 +344,29 @@ Should return OAuth server metadata with correct issuer.
 curl -I https://YOUR-DOMAIN.com/auth/login
 # Expected: HTTP 200
 
-# Test login with redirect_url
-curl -X POST https://YOUR-DOMAIN.com/auth/login \
-  -d "username=admin" \
-  -d "password=admin123" \
-  -d "redirect_url=https://YOUR-DOMAIN.com/oauth2/callback" \
-  --cookie-jar cookies.txt \
-  --location
+# Start an authorization request in a browser (PKCE values from the app or openssl)
+open "https://YOUR-DOMAIN.com/oauth2/authorize?response_type=code&client_id=liftrr-mobile-client&scope=openid%20profile%20read%20write&redirect_uri=https://YOUR-DOMAIN.com/oauth2/callback&state=xyz&code_challenge=$CODE_CHALLENGE&code_challenge_method=S256"
 ```
 
-**Expected**: Redirects to success page, not home page
+**Expected**: Redirects to `/auth/login`; after login and consent the browser is redirected to
+`/oauth2/callback?code=…&state=xyz`, which the app intercepts.
 
-### 5. Success Page Has Redirect Logic
+### 5. Callback Fallback Page
 
-View source of success page and verify:
-- ✅ `window.location.href` is called
-- ✅ Tokens are appended as URL parameters
-- ✅ Uses HTTPS URL (not Intent URI)
+`GET /oauth2/callback` returns a static page that does not contain the code, state, or any script.
 
 ---
 
 ## Troubleshooting
 
-### Problem: "Welcome to Liftrr" page shows instead of success page
+### Problem: Login lands on the home page instead of returning to the app
 
-**Symptom**: After login, user sees home.html instead of success.html with redirect countdown
+**Symptom**: After login, user sees home.html instead of the consent page / app
 
-**Cause**: Spring Security's `formLogin()` is redirecting to default success URL
+**Cause**: The login was not started from `/oauth2/authorize`, so there is no saved request to resume
 
-**Solution**: Disable `formLogin()` in `SecurityConfig.kt`:
-```kotlin
-// Remove or comment out:
-// .formLogin { ... }
-```
+**Solution**: Always start the flow from the app's `/oauth2/authorize` request, not by opening
+`/auth/login` directly.
 
 ### Problem: App Links not verified
 
@@ -449,61 +386,41 @@ View source of success page and verify:
 
 3. **Check package name matches** exactly
 
-### Problem: Tokens not in redirect URL
+### Problem: Browser shows "Android App Links are not verified"
 
-**Symptom**: App receives redirect but no tokens
+**Symptom**: `/oauth2/callback` opens in the browser instead of the app
 
-**Cause**: WebAuthController not passing tokens to model
+**Cause**: App Links verification failed, so the `/oauth2/callback` fallback page is shown
 
-**Solution**: Verify WebAuthController adds tokens to model:
-```kotlin
-model.addAttribute("accessToken", tokens.accessToken)
-model.addAttribute("refreshToken", tokens.refreshToken)
-model.addAttribute("expiresIn", tokens.expiresIn)
-```
-
-### Problem: No redirect happens at all
-
-**Symptom**: Success page shows but doesn't redirect
-
-**Cause**: `redirectUrl` is null in success.html
-
-**Solution**: Ensure Android app passes `redirect_url` parameter:
-```kotlin
-// In WebAuthHelper.kt
-fun openLoginWithRedirect(redirectUrl: String = REDIRECT_URI) {
-    val uri = LOGIN_URL.toUri().buildUpon()
-        .appendQueryParameter("redirect_url", redirectUrl)  // This line
-        .build()
-    openCustomTab(uri.toString())
-}
-```
+**Solution**: Fix App Links verification (see above), then retry login from the app.
 
 ---
 
 ## OAuth 2.0 Grant Types Supported
 
-### 1. Password Grant (Mobile Apps)
+### 1. Authorization Code + PKCE (Mobile App)
 
-**Use case**: Native mobile apps with secure credential storage
+**Use case**: The Android app, via Chrome Custom Tabs and Android App Links
 
 ```bash
+# 1. Generate code verifier (32 random bytes, base64url, 43 chars) and S256 challenge
+CODE_VERIFIER=$(openssl rand 32 | base64 | tr '+/' '-_' | tr -d '=')
+CODE_CHALLENGE=$(echo -n $CODE_VERIFIER | openssl dgst -binary -sha256 | base64 | tr '+/' '-_' | tr -d '=')
+
+# 2. Get authorization code (sign in on /auth/login, approve consent)
+open "https://YOUR-DOMAIN.com/oauth2/authorize?response_type=code&client_id=liftrr-mobile-client&scope=openid%20profile%20read%20write&redirect_uri=https://YOUR-DOMAIN.com/oauth2/callback&state=STATE&code_challenge=$CODE_CHALLENGE&code_challenge_method=S256"
+
+# 3. Exchange code for tokens (client_secret_basic)
 curl -X POST https://YOUR-DOMAIN.com/oauth2/token \
   -u "liftrr-mobile-client:mobile-secret" \
-  -d "grant_type=password" \
-  -d "username=admin" \
-  -d "password=admin123"
+  -d "grant_type=authorization_code" \
+  -d "code=AUTHORIZATION_CODE" \
+  -d "redirect_uri=https://YOUR-DOMAIN.com/oauth2/callback" \
+  -d "code_verifier=$CODE_VERIFIER"
 ```
 
-**Response**:
-```json
-{
-  "access_token": "eyJhbGciOiJSUzI1Ni...",
-  "refresh_token": "eyJhbGciOiJSUzI1Ni...",
-  "token_type": "Bearer",
-  "expires_in": 3600
-}
-```
+Codes are single-use; replaying one fails with `invalid_grant`. If the user denies consent the
+app receives `?error=access_denied&state=…`.
 
 ### 2. Refresh Token Grant
 
@@ -511,7 +428,7 @@ curl -X POST https://YOUR-DOMAIN.com/oauth2/token \
 curl -X POST https://YOUR-DOMAIN.com/oauth2/token \
   -u "liftrr-mobile-client:mobile-secret" \
   -d "grant_type=refresh_token" \
-  -d "refresh_token=eyJhbGciOiJSUzI1Ni..."
+  -d "refresh_token=REFRESH_TOKEN"
 ```
 
 ### 3. Authorization Code + PKCE (Web Apps)
@@ -557,7 +474,7 @@ curl -X POST https://YOUR-DOMAIN.com/oauth2/token \
 | Client ID | Secret | Grant Types | Purpose |
 |-----------|--------|-------------|---------|
 | liftrr-web-client | secret | authorization_code, refresh_token | Web applications |
-| liftrr-mobile-client | mobile-secret | password, refresh_token | Mobile apps |
+| liftrr-mobile-client | mobile-secret | authorization_code (PKCE required), refresh_token | Android app |
 | liftrr-service-client | service-secret | client_credentials | Service-to-service |
 
 ---
@@ -592,11 +509,11 @@ curl -X POST https://YOUR-DOMAIN.com/oauth2/token \
 
 ```
 GET  /auth/login                    # Web login page
-POST /auth/login                    # Process login
+POST /auth/login                    # Process login (Spring Security formLogin)
 GET  /auth/register                 # Registration page
 POST /auth/register                 # Process registration
-GET  /oauth2/callback               # OAuth callback (mobile)
-GET  /mobile/callback               # Alternative callback
+GET  /oauth2/callback               # App Links fallback page (static)
+GET  /oauth2/authorize              # Authorization endpoint (redirects to /auth/login)
 GET  /.well-known/assetlinks.json   # Android App Links verification
 GET  /.well-known/oauth-authorization-server  # OAuth metadata
 GET  /.well-known/jwks.json         # Public keys for JWT verification
@@ -653,10 +570,7 @@ LOGGING_LEVEL_ROOT=INFO
 ### Manual Testing
 
 ```bash
-# Test password grant
-curl -X POST http://localhost:8080/oauth2/token \
-  -u "liftrr-mobile-client:mobile-secret" \
-  -d "grant_type=password&username=admin&password=admin123"
+# Password grant is not supported; obtain tokens via Authorization Code + PKCE (see above)
 
 # Test user info endpoint
 curl http://localhost:8080/api/user/me \
@@ -696,9 +610,8 @@ To ensure Android App Links work correctly:
 - [ ] Placed file at `src/main/resources/static/.well-known/assetlinks.json`
 - [ ] Configured OAuth client with production redirect URIs
 - [ ] Updated issuer URL in `application.yml`
-- [ ] Disabled `formLogin()` in `SecurityConfig.kt`
-- [ ] WebAuthController returns "success" template (not redirect)
-- [ ] success.html uses HTTPS URLs (not Intent URIs)
+- [ ] `formLogin` uses `/auth/login`; authorize entry point is `/auth/login`
+- [ ] Mobile client: authorization_code + refresh_token, PKCE required, redirect `https://<domain>/oauth2/callback`
 - [ ] Deployed to HTTPS-enabled platform
 - [ ] Verified assetlinks.json is accessible at `https://YOUR-DOMAIN/.well-known/assetlinks.json`
 
@@ -709,8 +622,7 @@ To ensure Android App Links work correctly:
 - [ ] Verified App Links with `adb shell pm get-app-links`
 
 ### Testing
-- [ ] Login redirects to success page (not home page)
-- [ ] Success page shows countdown and redirects
+- [ ] Authorize request redirects to `/auth/login`, then consent, then `/oauth2/callback?code=…&state=…`
 - [ ] App automatically opens (no manual "Open in app" needed)
 - [ ] Tokens are received and saved in Android app
 - [ ] Can make authenticated API calls with tokens

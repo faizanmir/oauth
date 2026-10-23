@@ -26,8 +26,6 @@
         </div>
 
         <form th:action="@{/auth/login}" method="post" id="loginForm">
-            <!-- Hidden field to preserve redirect URL -->
-            <input type="hidden" name="redirect_url" th:value="${redirectUrl}" th:if="${redirectUrl}">
 
             <div class="form-group">
                 <label for="username">Username or Email</label>
@@ -63,7 +61,7 @@
 
         <div class="link-text">
             Don't have an account?
-            <a th:href="@{/auth/register(redirect_url=${redirectUrl})}">Create Account</a>
+            <a th:href="@{/auth/register}">Create Account</a>
         </div>
     </div>
 

@@ -6,101 +6,16 @@
     <meta name="theme-color" content="#11998e">
     <title>Success!</title>
     <link rel="stylesheet" th:href="@{/css/auth.css}">
-    <style>
-        /* Optional: Add a simple spinner */
-        .spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #11998e;
-            border-radius: 50%;
-            width: 30px;
-            height: 30px;
-            animation: spin 1s linear infinite;
-            margin: 20px auto;
-        }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    </style>
 </head>
 <body>
 <div class="auth-container success-container">
     <div class="success-icon">✓</div>
     <h2 th:text="${title ?: 'Success!'}">Success!</h2>
-    <p th:text="${message ?: 'Login successful. Redirecting to app...'}">
-        Login successful. Redirecting to app...
-    </p>
+    <p th:text="${message ?: 'Done.'}">Done.</p>
 
-    <div class="spinner"></div>
-    <div class="countdown" id="countdown">3</div>
-
-    <p style="color: #999; font-size: 14px; margin-top: 10px;">
-        If the app doesn't open, click below:
-    </p>
-
-    <button class="btn" id="redirectBtn" onclick="forceRedirect()" style="margin-top: 20px;">
-        Open App
-    </button>
+    <a th:href="@{/auth/login}" style="display: block; margin-top: 16px; color: #667eea; text-decoration: none;">
+        Back to Login
+    </a>
 </div>
-
-<script th:inline="javascript">
-    /*<![CDATA[*/
-    // ================= CONFIGURATION =================
-    // ⚠️ IMPORTANT: Check your build.gradle (Module: app) for 'applicationId'
-    // It must match this value exactly for the redirect to work!
-    const ANDROID_PACKAGE_NAME = "org.learn.tokenviaoauth2";
-    // =================================================
-
-    let count = 3;
-    const countdownEl = document.getElementById('countdown');
-
-    // Get tokens injected by Thymeleaf
-    const accessToken = /*[[${accessToken}]]*/ '';
-    const refreshToken = /*[[${refreshToken}]]*/ '';
-    const expiresIn = /*[[${expiresIn}]]*/ '';
-    const userData = /*[[${userData}]]*/ null;
-    const baseRedirectUrl = /*[[${redirectUrl}]]*/ '';
-
-    // Log to console for debugging (open browser DevTools to view)
-    if (!baseRedirectUrl) {
-        console.error("No redirect URL provided - cannot redirect to app");
-    } else {
-        console.log("Success page loaded, will redirect to:", baseRedirectUrl);
-    }
-
-    // Timer Logic
-    const interval = setInterval(() => {
-        count--;
-        countdownEl.textContent = count;
-        if (count <= 0) {
-            clearInterval(interval);
-            forceRedirect();
-        }
-    }, 1000);
-
-    function forceRedirect() {
-        if (!baseRedirectUrl) {
-            console.error("Redirect failed: No redirect URL provided");
-            return;
-        }
-
-        // Build URL parameters with tokens
-        const params = new URLSearchParams();
-        if (accessToken) params.set('access_token', accessToken);
-        if (refreshToken) params.set('refresh_token', refreshToken);
-        if (expiresIn) params.set('expires_in', expiresIn);
-        if (userData && userData.username) params.set('username', userData.username);
-
-        // Build HTTPS URL - Android App Links will intercept this
-        const fullHttpsUrl = baseRedirectUrl + (baseRedirectUrl.includes('?') ? '&' : '?') + params.toString();
-
-        console.log("Redirecting to app:", fullHttpsUrl.substring(0, 80) + "...");
-
-        // Redirect - this will trigger Android App Links
-        window.location.href = fullHttpsUrl;
-    }
-
-    // Run immediately
-    setTimeout(forceRedirect, 500);
-
-    /*]]>*/
-</script>
 </body>
 </html>
