@@ -10,6 +10,7 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.mock.web.MockHttpServletResponse
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user
+import org.springframework.test.annotation.DirtiesContext
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
@@ -19,12 +20,16 @@ import org.springframework.web.util.UriComponentsBuilder
 
 @SpringBootTest
 @AutoConfigureMockMvc
+// Consent is remembered in memory after the first approval; a fresh context per test keeps
+// every test starting at the consent page regardless of execution order.
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 class OAuth2AuthorizationCodeFlowTest {
 
     companion object {
         private const val CLIENT_ID = "liftrr-mobile-client"
         private const val CLIENT_SECRET = "mobile-secret"
         private const val REDIRECT_URI = "https://web-production-2b788.up.railway.app/oauth2/callback"
+        private const val CUSTOM_SCHEME_REDIRECT_URI = "org.learn.tokenviaoauth2://oauth2/callback"
         private const val CODE_VERIFIER = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
         private const val CODE_CHALLENGE = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"
         private const val CLIENT_STATE = "xyz"
@@ -36,17 +41,18 @@ class OAuth2AuthorizationCodeFlowTest {
 
     private val principal = user("user").roles("USER")
 
-    private fun authorize(approve: Boolean): MockHttpServletResponse {
+    private fun authorize(approve: Boolean, redirectUri: String = REDIRECT_URI): MockHttpServletResponse {
+        // queryParam (not param): the authorization endpoint reads GET parameters from the query string
         val consentPage = mockMvc.perform(
             get("/oauth2/authorize")
                 .with(principal)
-                .param("response_type", "code")
-                .param("client_id", CLIENT_ID)
-                .param("redirect_uri", REDIRECT_URI)
-                .param("scope", "openid profile read write")
-                .param("state", CLIENT_STATE)
-                .param("code_challenge", CODE_CHALLENGE)
-                .param("code_challenge_method", "S256")
+                .queryParam("response_type", "code")
+                .queryParam("client_id", CLIENT_ID)
+                .queryParam("redirect_uri", redirectUri)
+                .queryParam("scope", "openid profile read write")
+                .queryParam("state", CLIENT_STATE)
+                .queryParam("code_challenge", CODE_CHALLENGE)
+                .queryParam("code_challenge_method", "S256")
         )
             .andExpect(status().isOk)
             .andReturn().response.contentAsString
@@ -75,13 +81,52 @@ class OAuth2AuthorizationCodeFlowTest {
         return params.getFirst("code") ?: error("no code in redirect: $location")
     }
 
-    private fun exchange(code: String, codeVerifier: String? = CODE_VERIFIER) =
+    private fun exchange(code: String, codeVerifier: String? = CODE_VERIFIER, redirectUri: String = REDIRECT_URI) =
         post("/oauth2/token")
             .with(httpBasic(CLIENT_ID, CLIENT_SECRET))
             .param("grant_type", "authorization_code")
             .param("code", code)
-            .param("redirect_uri", REDIRECT_URI)
+            .param("redirect_uri", redirectUri)
             .apply { if (codeVerifier != null) param("code_verifier", codeVerifier) }
+
+    @Test
+    fun `custom scheme redirect for TWA login returns code to the app and exchanges`() {
+        val location = authorize(approve = true, redirectUri = CUSTOM_SCHEME_REDIRECT_URI).redirectedUrl!!
+        assertTrue(location.startsWith(CUSTOM_SCHEME_REDIRECT_URI), "unexpected redirect: $location")
+        val params = UriComponentsBuilder.fromUriString(location).build().queryParams
+        assertTrue(params.getFirst("state") == CLIENT_STATE, "state not echoed: $location")
+        val code = params.getFirst("code") ?: error("no code in redirect: $location")
+
+        mockMvc.perform(exchange(code, redirectUri = CUSTOM_SCHEME_REDIRECT_URI))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.access_token").exists())
+    }
+
+    @Test
+    fun `code issued for custom scheme redirect cannot be exchanged with a different redirect_uri`() {
+        val location = authorize(approve = true, redirectUri = CUSTOM_SCHEME_REDIRECT_URI).redirectedUrl!!
+        val code = UriComponentsBuilder.fromUriString(location).build().queryParams.getFirst("code")!!
+
+        mockMvc.perform(exchange(code, redirectUri = REDIRECT_URI))
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.error").value("invalid_grant"))
+    }
+
+    @Test
+    fun `unregistered custom scheme redirect is rejected`() {
+        mockMvc.perform(
+            get("/oauth2/authorize")
+                .with(principal)
+                .queryParam("response_type", "code")
+                .queryParam("client_id", CLIENT_ID)
+                .queryParam("redirect_uri", "com.evil.app://oauth2/callback")
+                .queryParam("scope", "openid profile read write")
+                .queryParam("state", CLIENT_STATE)
+                .queryParam("code_challenge", CODE_CHALLENGE)
+                .queryParam("code_challenge_method", "S256")
+        )
+            .andExpect(status().isBadRequest)
+    }
 
     @Test
     fun `full authorization code flow with pkce reaches api and refreshes`() {

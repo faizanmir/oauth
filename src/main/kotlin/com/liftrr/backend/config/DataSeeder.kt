@@ -108,13 +108,11 @@ class DataSeeder(
 
             // Mobile client with Authorization Code + PKCE
             val mobileClient = OAuth2Client(
-                clientId = "liftrr-mobile-client",
+                clientId = MOBILE_CLIENT_ID,
                 clientSecret = passwordEncoder.encode("mobile-secret")!!,
                 clientName = "Liftrr Mobile Application",
                 grantTypes = mutableSetOf("authorization_code", "refresh_token"),
-                redirectUris = mutableSetOf(
-                    "https://web-production-2b788.up.railway.app/oauth2/callback"  // Android App Links
-                ),
+                redirectUris = MOBILE_REDIRECT_URIS.toMutableSet(),
                 scopes = mutableSetOf("openid", "profile", "read", "write"),
                 accessTokenTimeToLive = 3600,
                 refreshTokenTimeToLive = 86400,
@@ -125,6 +123,38 @@ class DataSeeder(
             logger.info("OAuth2 clients seeded successfully")
         } else {
             logger.info("OAuth2 clients already exist, skipping seeding")
+            ensureMobileRedirectUris()
         }
+    }
+
+    /**
+     * Adds any missing mobile redirect URIs to an already-seeded client, so existing
+     * (persistent) databases pick up new redirect URIs without a manual migration.
+     */
+    private fun ensureMobileRedirectUris() {
+        val mobileClient = oAuth2ClientRepository.findByClientId(MOBILE_CLIENT_ID).orElse(null) ?: return
+        val missing = MOBILE_REDIRECT_URIS - mobileClient.redirectUris
+        if (missing.isNotEmpty()) {
+            mobileClient.redirectUris.addAll(missing)
+            oAuth2ClientRepository.save(mobileClient)
+            logger.info("Added redirect URIs to $MOBILE_CLIENT_ID: $missing")
+        }
+    }
+
+    companion object {
+        const val MOBILE_CLIENT_ID = "liftrr-mobile-client"
+
+        /** Android App Link: used by Custom Tab and Auth Tab logins. */
+        const val MOBILE_APP_LINK_REDIRECT_URI = "https://web-production-2b788.up.railway.app/oauth2/callback"
+
+        /**
+         * Custom scheme: used by the Trusted Web Activity login. The TWA keeps every URL on its
+         * own (verified) origin inside the TWA, so an https redirect on this server never reaches
+         * the app. A custom scheme is always handed to the app by Chrome. PKCE + state protect
+         * against another app registering the same scheme (RFC 8252 §7.1).
+         */
+        const val MOBILE_CUSTOM_SCHEME_REDIRECT_URI = "org.learn.tokenviaoauth2://oauth2/callback"
+
+        val MOBILE_REDIRECT_URIS = setOf(MOBILE_APP_LINK_REDIRECT_URI, MOBILE_CUSTOM_SCHEME_REDIRECT_URI)
     }
 }
